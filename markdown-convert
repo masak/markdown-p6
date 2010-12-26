@@ -1,0 +1,271 @@
+#! /usr/bin/env niecza
+
+my $input = q:to/END/;
+Dashes:
+
+---
+
+ ---
+ 
+  ---
+
+   ---
+
+	---
+
+- - -
+
+ - - -
+ 
+  - - -
+
+   - - -
+
+	- - -
+
+
+Asterisks:
+
+***
+
+ ***
+ 
+  ***
+
+   ***
+
+	***
+
+* * *
+
+ * * *
+ 
+  * * *
+
+   * * *
+
+	* * *
+
+
+Underscores:
+
+___
+
+ ___
+ 
+  ___
+
+   ___
+
+    ___
+
+_ _ _
+
+ _ _ _
+ 
+  _ _ _
+
+   _ _ _
+
+    _ _ _
+END
+
+my $output = q:to/END/;
+<p>Dashes:</p>
+
+<hr />
+
+<hr />
+
+<hr />
+
+<hr />
+
+<pre><code>---
+</code></pre>
+
+<hr />
+
+<hr />
+
+<hr />
+
+<hr />
+
+<pre><code>- - -
+</code></pre>
+
+<p>Asterisks:</p>
+
+<hr />
+
+<hr />
+
+<hr />
+
+<hr />
+
+<pre><code>***
+</code></pre>
+
+<hr />
+
+<hr />
+
+<hr />
+
+<hr />
+
+<pre><code>* * *
+</code></pre>
+
+<p>Underscores:</p>
+
+<hr />
+
+<hr />
+
+<hr />
+
+<hr />
+
+<pre><code>___
+</code></pre>
+
+<hr />
+
+<hr />
+
+<hr />
+
+<hr />
+
+<pre><code>_ _ _
+</code></pre>
+END
+
+sub split($str, Regex $r) {
+    if my $m = $str ~~ $r {
+        my $head = $str.substr(0, $m.from);
+        my @tail = split($str.substr($m.to, $str.chars), $r);
+        return ($head, @tail)
+    }
+    else {
+        return $str
+    }
+}
+
+sub trim-leading($s) { my $m = $s ~~ /^ \s*/; $s.substr($m.to, $s.chars) }
+sub trim-trailing($s) { my $m = $s ~~ /\s* $/; $s.substr(0, $m.from) }
+sub trim($s) { trim-leading(trim-trailing($s)) }
+
+sub para-convert($para) {
+    my $trimmed-para = trim($para);
+    my $para-is-hrule = $trimmed-para eq '---'
+                        || $trimmed-para eq '- - -'
+                        || $trimmed-para eq '***'
+                        || $trimmed-para eq '* * *'
+                        || $trimmed-para eq '___'
+                        || $trimmed-para eq '_ _ _';
+    my $tabs-to-spaces = $para.substr(0, ($para ~~ /^ \s*/).to);
+    while $tabs-to-spaces ~~ /\t/ {
+        $tabs-to-spaces = q[ ] x 4
+            ~ $tabs-to-spaces.substr(0, ($tabs-to-spaces ~~ /\t/).from)
+            ~ $tabs-to-spaces.substr(($tabs-to-spaces ~~ /\t/).to,
+                                     $tabs-to-spaces.chars);
+    }
+    my $leading-whitespace = $tabs-to-spaces.chars;
+    my $para-is-code = False;
+    if $leading-whitespace >= 4 {
+        $para-is-hrule = False;
+        $para-is-code = True;
+    }
+    if $para-is-hrule {
+        return "<hr />";
+    }
+    elsif $para-is-code {
+        my $indent = $para.substr(0, 1) eq ' ' ?? 4 !! 1;
+        my $nl = $para.substr($para.chars-1, 1) eq "\n" ?? "" !! "\n";
+        return "<pre><code>$para.substr($indent, $para.chars)$nl\</code></pre>";
+    }
+    else {
+        return "<p>$para\</p>";
+    }
+}
+
+sub markdown-convert($input) {
+    (join "\n\n", map { para-convert($_) }, split($input, /\n\h*\n+/)) ~ "\n";
+}
+
+my module Test {
+    constant $?TRANSPARENT = 1;
+
+    class Builder {
+        has $.current-test;
+
+        method new() {
+            $*TEST-BUILDER;
+        }
+
+        method !output($text) {
+            say $text;
+        }
+
+        method reset() {
+            $.current-test = 1;
+        }
+
+        method note($m) {
+            self!output("# " ~ $m);
+            0;
+        }
+
+        method ok($bool, $tag) {
+            my $not = $bool ?? "" !! "not ";
+            self!output($not ~ "ok " ~ $.current-test++ ~ " - " ~ $tag);
+        }
+
+        method is($a, $b, $tag) {
+            self.ok($a eq $b, $tag);
+            if $a ne $b {
+                self.note("Expected:");
+                for split($b, /\n/) {
+                    self.note($_);
+                }
+                self.note("Got:");
+                for split($a, /\n/) {
+                    self.note($_);
+                }
+            }
+        }
+
+        method expected-tests($num) {
+            self!output("1.." ~ $num);
+        }
+
+        method plan($x) {
+            if $x ~~ Num {
+                self.expected-tests($x);
+            } elsif $x ~~ Whatever {
+                # no effect
+            } else {
+                die "Invalid argument to plan";
+            }
+        }
+
+        method done-testing {
+            self!output("1.." ~ ($.current-test - 1));
+        }
+    }
+
+    $GLOBAL::TEST-BUILDER = Builder.CREATE;
+    $GLOBAL::TEST-BUILDER.reset;
+}
+
+sub ok($bool, $tag) { $*TEST-BUILDER.ok($bool, $tag) }
+sub is($a, $b, $tag) { $*TEST-BUILDER.is($a, $b, $tag) }
+sub plan($num) { $*TEST-BUILDER.plan($num) }
+sub done-testing() { $*TEST-BUILDER.done-testing }
+sub done_testing() { $*TEST-BUILDER.done-testing }
+
+is markdown-convert($input), $output, "horizontal rules";
