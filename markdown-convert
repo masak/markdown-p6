@@ -144,17 +144,6 @@ my $output = q:to/END/;
 </code></pre>
 END
 
-sub split($str, Regex $r) {
-    if my $m = $str ~~ $r {
-        my $head = $str.substr(0, $m.from);
-        my @tail = split($str.substr($m.to, $str.chars), $r);
-        return ($head, @tail)
-    }
-    else {
-        return $str
-    }
-}
-
 sub trim-leading($s) { my $m = $s ~~ /^ \s*/; $s.substr($m.to, $s.chars) }
 sub trim-trailing($s) { my $m = $s ~~ /\s* $/; $s.substr(0, $m.from) }
 sub trim($s) { trim-leading(trim-trailing($s)) }
@@ -194,7 +183,7 @@ sub para-convert($para) {
 }
 
 sub markdown-convert($input) {
-    (join "\n\n", map { para-convert($_) }, split($input, /\n\h*\n+/)) ~ "\n";
+    (join "\n\n", map { para-convert($_) }, $input.split(/\n\h*\n+/)) ~ "\n";
 }
 
 my module Test {
@@ -228,12 +217,12 @@ my module Test {
         method is($a, $b, $tag) {
             self.ok($a eq $b, $tag);
             if $a ne $b {
-                self.note("Expected:");
-                for split($b, /\n/) {
+                self.note("Expected ($b.chars() chars):");
+                for $b.lines {
                     self.note($_);
                 }
-                self.note("Got:");
-                for split($a, /\n/) {
+                self.note("Got ($a.chars() chars):");
+                for $a.lines {
                     self.note($_);
                 }
             }
