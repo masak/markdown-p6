@@ -226,14 +226,8 @@ my module Test {
         method is($a, $b, $tag) {
             self.ok($a eq $b, $tag);
             if $a ne $b {
-                self.note("Expected ($b.chars() chars):");
-                for $b.lines {
-                    self.note($_);
-                }
-                self.note("Got ($a.chars() chars):");
-                for $a.lines {
-                    self.note($_);
-                }
+                spew('/tmp/a', $a);
+                spew('/tmp/b', $b);
             }
         }
 
