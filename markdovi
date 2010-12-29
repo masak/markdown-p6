@@ -182,8 +182,17 @@ sub para-convert($para) {
     }
 }
 
+grammar Markdown {
+    token TOP { <para> ** <.interpara> }
+    token para { [ <!before <interpara>> . ]+ }
+    token interpara { \n[\h*\n]+ }
+}
+
 sub markdown-convert($input) {
-    (join "\n\n", map { para-convert($_) }, $input.split(/\n\h*\n+/)) ~ "\n";
+    my $match = Markdown.parse($input);
+    die "Couldn't parse" unless $match;
+    my @paras = $match<para>.list;
+    (join "\n\n", map { para-convert($_) }, @paras) ~ "\n";
 }
 
 my module Test {
